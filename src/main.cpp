@@ -1,73 +1,52 @@
-#include "NeuralNet/nn.h"
 #include <iostream>
 #include <fstream>
+#include <memory>
+#include <array>
 #include <vector>
+#include <stdexcept>
 
-// Read data from a file loaded from filepath into a string
-std::vector<uint8_t> read_file(const std::string& filepath)
-{
-    std::ifstream file(filepath);
-    std::vector<uint8_t> bytes;
+#include "NeuralNet/nn.h"
 
-    if (!file.is_open()) throw std::runtime_error("Cannot find file");
-
-    file.seekg(0, std::ios::end);   
-    bytes.resize(file.tellg());
-    file.seekg(0, std::ios::beg);
-    file.read((char*) bytes.data(), bytes.size());
-    
-    file.close();
-
-    return bytes;
+// Read data from a file loaded from filepath into a vector of bytes
+std::vector<uint8_t> read_file(const std::string& filepath) {
+    std::ifstream file(filepath, std::ios::binary);
+    if (!file) {
+        throw std::runtime_error("Cannot open file: " + filepath);
+    }
+    return { std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() };
 }
 
-int main(void)
-{
-    std::cout << "Hello, Wordl!" << std::endl;
+int main() {
+    std::cout << "Hello, World!" << std::endl;
 
-    // Super hacky dataset loading
-    auto training_img = read_file("data/train-images-idx3-ubyte");
-    auto training_lables = read_file("data/train-labels-idx1-ubyte");
-    auto test_img = read_file("data/t10k-images-idx3-ubyte");
-    auto test_lables = read_file("data/t10k-labels-idx1-ubyte");
+    // Load datasets
+    auto training_images = std::make_unique<std::vector<uint8_t>>(read_file("data/train-images-idx3-ubyte"));
+    auto training_labels = std::make_unique<std::vector<uint8_t>>(read_file("data/train-labels-idx1-ubyte"));
+    auto test_images = std::make_unique<std::vector<uint8_t>>(read_file("data/t10k-images-idx3-ubyte"));
+    auto test_labels = std::make_unique<std::vector<uint8_t>>(read_file("data/t10k-labels-idx1-ubyte"));
 
     // Create a neural network with 784 input neurons, 512 hidden neurons, and 10 output neurons
-    NeuralNet nn({ 784, 512, 10 });
+    std::array<int, 3> layer_sizes{ 784, 512, 10 };
+    NeuralNet nn(layer_sizes);
 
-    std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> training_data;
-    std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> test_data;
+    // Convert datasets into vector of pairs of inputs and expected outputs
+    auto convert_dataset = [](const auto& images, const auto& labels) {
+        std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> data;
+        for (size_t i = 8; i < labels.size(); i++) {
+            Eigen::VectorXd input(784);
+            Eigen::VectorXd expected_output(10);
+            expected_output.setZero();
+            expected_output[labels[i]] = 1;
 
-    for (size_t i = 0; i < training_lables.size() - 8; i++)
-    {
-        Eigen::VectorXd input = Eigen::VectorXd(784);
-        Eigen::VectorXd expected_output = Eigen::VectorXd(10);
-        expected_output.setZero();
-        expected_output[training_lables[i + 8]] = 1;
+            for (size_t j = 0; j < 784; j++) {
+                input[j] = images[i * 784 + j] / 255.0;
+            }
 
-        for (size_t j = 0; j < 784; j++)
-        {
-            input[j] = training_img[16 + i * 784 + j] / 255.0;
+            data.push_back({ input, expected_output });
         }
+        return data;
+    };
 
-        training_data.push_back(std::pair(input, expected_output));
-    }
+    auto training_data = convert_dataset(*training_images, *training_labels);
+    auto test_data = convert_dataset(*test_images, *test_labels);
 
-    for (size_t i = 0; i < test_lables.size() - 8; i++)
-    {
-        Eigen::VectorXd input = Eigen::VectorXd(784);
-        Eigen::VectorXd expected_output = Eigen::VectorXd(10);
-        expected_output.setZero();
-        expected_output[test_lables[i + 8]] = 1;
-
-        for (size_t j = 0; j < 784; j++)
-        {
-            input[j] = test_img[16 + i * 784 + j] / 255.0;
-        }
-
-        test_data.push_back(std::pair(input, expected_output));
-    }
-
-    std::cout << "Training..." << std::endl;
-
-    nn.train(training_data, 30, 64, 0.01, test_data);
-}
