@@ -15,7 +15,7 @@ NeuralNet::NeuralNet(const std::vector<size_t>& neurons_per_layer)
     for (size_t i = 0; i < layers - 1; i++)
     {
         this->weights[i] = Eigen::MatrixXd::Random(neurons_per_layer[i + 1], neurons_per_layer[i]);
-        this->biases[i] = Eigen::VectorXd::Random(neurons_per_layer[i]);
+        this->biases[i] = Eigen::VectorXd::Random(neurons_per_layer[i + 1]);
     }
 }
 
@@ -28,10 +28,10 @@ NeuralNet::NeuralNet(const std::vector<size_t>& neurons_per_layer, std::function
     this->activation_function = activation_function;
     this->derivative_activation_function = derivative_activation_function;
     
-    for (size_t i = 0; i < layers; i++)
+    for (size_t i = 0; i < layers - 1; i++)
     {
-        this->weights[i] = Eigen::MatrixXd::Random(neurons_per_layer[i], 2);
-        this->biases[i] = Eigen::VectorXd::Random(neurons_per_layer[i]);
+        this->weights[i] = Eigen::MatrixXd::Random(neurons_per_layer[i + 1], neurons_per_layer[i]);
+        this->biases[i] = Eigen::VectorXd::Random(neurons_per_layer[i + 1]);
     }
 }
 
@@ -47,33 +47,29 @@ Eigen::VectorXd NeuralNet::feed_forward(const Eigen::VectorXd& input)
 
 std::pair<std::vector<Eigen::MatrixXd>, std::vector<Eigen::VectorXd>> NeuralNet::compute_gradient(const Eigen::VectorXd& input, const Eigen::VectorXd& expected_output)
 {
-    std::vector<Eigen::MatrixXd> nabla_w = std::vector<Eigen::MatrixXd>(this->layers);
-    std::vector<Eigen::VectorXd> nabla_b = std::vector<Eigen::VectorXd>(this->layers);
+    std::vector<Eigen::MatrixXd> nabla_w = std::vector<Eigen::MatrixXd>(this->layers - 1);
+    std::vector<Eigen::VectorXd> nabla_b = std::vector<Eigen::VectorXd>(this->layers - 1);
     
     // Feed forward
     std::vector<Eigen::VectorXd> activations = std::vector<Eigen::VectorXd>(this->layers);
     std::vector<Eigen::VectorXd> zs = std::vector<Eigen::VectorXd>(this->layers);
     activations[0] = input;
 
-    std::cout << "compute_gradient" << std::endl;
     for (size_t i = 0; i < layers - 1; i++)
     {
-        zs[i] = weights[i] * activations[i];
+        zs[i] = (weights[i] * activations[i]) + biases[i];
         activations[i + 1] = activation_function(zs[i]);
     }
 
     
     // Backpropagation
     Eigen::VectorXd delta_error = hadamard((activations[activations.size() - 1] - expected_output), (derivative_activation_function(zs[zs.size() - 2])));
-    std::cout << "compute_gradient" << std::endl;
-    std::cout << "delta_error: " << delta_error.rows() << ", " << delta_error.cols() << std::endl;
-    std::cout << "delta_error: " << delta_error.rows() << ", " << delta_error.cols() << std::endl;
-    nabla_w[nabla_w.size() - 1] = hadamarddelta_error * activations[activations.size() - 2];
+    nabla_w[nabla_w.size() - 1] = hadamard(delta_error, activations[activations.size() - 2]);
     nabla_b[nabla_b.size() - 1] = delta_error;
     for (size_t i = 1; i < layers - 1; i++)
     {
-        delta_error = (weights[weights.size() - i + 1] * delta_error) * derivative_activation_function(zs[zs.size() - i]);
-        nabla_w[nabla_w.size() - i - 1] = delta_error* activations[activations.size() - i - 1];
+        delta_error = hadamard(delta_error.transpose() * weights[weights.size() - i - 1], derivative_activation_function(zs[zs.size() - i - 2]));
+        nabla_w[nabla_w.size() - i - 1] = hadamard(delta_error, activations[activations.size() - i - 1]);
         nabla_b[nabla_b.size() - i - 1] = delta_error;
     }
     
@@ -93,23 +89,32 @@ void NeuralNet::train(std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> t
 
         for (size_t j = 0; j < training_data.size() / mini_batch_size; j++)
         {
-            std::pair<std::vector<Eigen::MatrixX2d>, std::vector<Eigen::VectorXd>> gradient;
+            std::pair<std::vector<Eigen::MatrixXd>, std::vector<Eigen::VectorXd>> gradient;
+            gradient.first = std::vector<Eigen::Xd>(this->layers);
+            gradient.second = std::vector<Eigen::VectorXd>(this->layers);
+
+            for (size_t i = 0; i < layers - 1; i++)
+            {
+                gradient.first[i] = Eigen::MatrixXd::Zero(neurons_per_layer[i + 1], neurons_per_layer[i]);
+                gradient.second[i] = Eigen::VectorXd::Zero(neurons_per_layer[i + 1]);
+            }
+
             // Iterate over data 
             for (size_t k = 0; k < mini_batch_size; k++)
             {
                 auto current_batch = std::vector(training_data.begin() + j * mini_batch_size, training_data.begin() + (j + 1) * mini_batch_size);
                 auto add_to_grad = compute_gradient(current_batch[k].first, current_batch[k].second);
-                for (size_t x = 0; x < layers; x++)
+                for (size_t x = 0; x < layers - 1; x++)
                 {
                     gradient.first[x] += add_to_grad.first[x];
                     gradient.second[x] += add_to_grad.second[x];
                 }
             }
 
-            for (size_t k = 0; k < layers; k++)
+            for (size_t k = 0; k < layers - 1; k++)
             {
-                this->weights[k] -= learning_rate * gradient.first[k];
-                this->biases[k] -= learning_rate * gradient.second[k];
+                this->weights[k] -= learning_rate * (gradient.first[k] / mini_batch_size);
+                this->biases[k] -= learning_rate * (gradient.second[k] / mini_batch_size);
             }
         }
         

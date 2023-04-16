@@ -12,7 +12,6 @@ using act_fun_type = Eigen::VectorXd(const Eigen::VectorXd&);
 // Calculate hadamard multiplication of two vectors (used to calculate delta error)
 inline Eigen::VectorXd hadamard(const Eigen::VectorXd& a, const Eigen::VectorXd& b)
 {
-    std::cout << "in hadamard" << std::endl;    
     Eigen::VectorXd result(a.size());
     for (int i = 0; i < a.size(); i++)
     {
