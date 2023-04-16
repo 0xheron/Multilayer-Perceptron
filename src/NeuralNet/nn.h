@@ -18,7 +18,7 @@ private:
     std::vector<size_t> neurons_per_layer;
 
     // All of the weights in the neural network
-    std::vector<Eigen::MatrixX2d> weights;
+    std::vector<Eigen::MatrixXd> weights;
 
     // All of the biases in the neural network
     std::vector<Eigen::VectorXd> biases;
@@ -42,7 +42,7 @@ public:
     // Feeds the input through the neural network and returns the output
     Eigen::VectorXd feed_forward(const Eigen::VectorXd& input);
 
-    std::pair<std::vector<Eigen::MatrixX2d>, std::vector<Eigen::VectorXd>> compute_gradient(const Eigen::VectorXd& input, const Eigen::VectorXd& expected_output);
+    std::pair<std::vector<Eigen::MatrixXd>, std::vector<Eigen::VectorXd>> compute_gradient(const Eigen::VectorXd& input, const Eigen::VectorXd& expected_output);
 
     // Trains the neural network using the specified training data
     void train(std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> training_data, size_t epochs, size_t mini_batch_size, double learning_rate, const std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>>& test_data = std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>>());

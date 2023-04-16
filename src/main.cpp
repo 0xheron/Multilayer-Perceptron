@@ -26,20 +26,20 @@ int main() {
     auto test_labels = std::make_unique<std::vector<uint8_t>>(read_file("data/t10k-labels-idx1-ubyte"));
 
     // Create a neural network with 784 input neurons, 512 hidden neurons, and 10 output neurons
-    std::array<int, 3> layer_sizes{ 784, 512, 10 };
-    NeuralNet nn(layer_sizes);
+    NeuralNet nn({ 784, 512, 10 });
 
     // Convert datasets into vector of pairs of inputs and expected outputs
-    auto convert_dataset = [](const auto& images, const auto& labels) {
+    auto convert_dataset = [](const auto& images, const auto& labels) 
+    {
         std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> data;
-        for (size_t i = 8; i < labels.size(); i++) {
+        for (size_t i = 0; i < labels.size() - 8; i++) {
             Eigen::VectorXd input(784);
             Eigen::VectorXd expected_output(10);
             expected_output.setZero();
-            expected_output[labels[i]] = 1;
+            expected_output[labels[i + 8]] = 1;
 
             for (size_t j = 0; j < 784; j++) {
-                input[j] = images[i * 784 + j] / 255.0;
+                input[j] = images[16 + i * 784 + j] / 255.0;
             }
 
             data.push_back({ input, expected_output });
@@ -50,3 +50,5 @@ int main() {
     auto training_data = convert_dataset(*training_images, *training_labels);
     auto test_data = convert_dataset(*test_images, *test_labels);
 
+    nn.train(training_data, 30, 32, 0.01, test_data);
+}
